@@ -43,7 +43,6 @@ public:
 	void append (T item);
 	void remove (T item);
 	void push (T item);
-	T peek ();
 	void pop();
 	
 	void incrementSize () { size++; }
@@ -89,17 +88,10 @@ void List<T>::push (T item) {
 }
 
 template <typename T>
-T List<T>::peek () {
-
-	return head->getData();
-
-}
-
-template <typename T>
 void List<T>::pop () {
 
 	Node<T>* temp = head;
-	head = head.getNext();
+	head = head->getNext();
 	delete temp;
 	size--;
 
