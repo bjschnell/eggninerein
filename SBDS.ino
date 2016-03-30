@@ -1,19 +1,18 @@
 #include <UTFT.h>
 #include <ITDB02_Touch.h>
 #include <List.h>
+#include <Servo.h>
+
+String username="bob";
+String password="pass";
+
+Servo servo1;
+Servo servo2;
+  //Set the starting positions of each servo
+  int position1 = 0;
+  int position2 = 180;
 
 // Smart beverage Dispenser 
-
-// This code block is only needed to support multiple
-// MCU architectures in a single sketch.
-#if defined(__AVR__)
-  #define imagedatatype  unsigned int
-#elif defined(__PIC32MX__)
-  #define imagedatatype  unsigned short
-#elif defined(__arm__)
-  #define imagedatatype  unsigned short
-#endif
-// End of multi-architecture block
 
 #define FONT_SIZE 16
 #define HEIGHT 240
@@ -119,6 +118,24 @@ public:
   }
 };
 
+/*****************************************
+ * Back button class 
+ * Used to go to the previous screen.
+ * Inherits from GenericButton
+ *****************************************/
+class LoginButton: public GenericButton {
+public:
+  LoginButton(int x1, int y1, int x2, int y2, String text) : GenericButton(x1,y1,x2,y2,text) {}
+
+  bool on_press() {
+    myGLCD.clrScr();
+    drawKeyBoard(false);
+    readKeyBoard(bool SHIFT,bool PASSWORD,int X,int Y);
+    delay(10000);
+    return false;
+  }
+};
+
 /**************************************
  * Dispense Button Class
  * Dispenses the beverage based
@@ -134,6 +151,7 @@ public:
 
   bool on_press() {
     // Dispense the beverage based 
+    pinMode(8, OUTPUT);
     screen_stack->push(next_screen);
     return true;
   }
@@ -153,6 +171,7 @@ public:
       while (myTouch.dataAvailable()) {
         myTouch.read();
         // send signal to pour the beverage
+        
       }
       // send signal to stop pouring
      return false;
@@ -256,6 +275,7 @@ class Screen {
   
 };
 
+Screen* login;
 Screen* main_menu;
 Screen* dispense_one;
 Screen* dispense_two;
@@ -269,7 +289,7 @@ Screen* currScreen;
 
 void setup() {
   // Inital setup code of the 
-
+  
   myGLCD.InitLCD(LANDSCAPE);
   myGLCD.clrScr();
 
@@ -278,7 +298,7 @@ void setup() {
 
   myGLCD.setFont(BigFont);
   myGLCD.setBackColor(0,0,255);
-
+  
   screen_stack = new List<Screen*>();
 
   blank_screen = new Screen("Blank screen");
@@ -291,6 +311,9 @@ void setup() {
   //                 are used as the destination screen
   //************************************************************** 
 
+  login = new Screen("login");
+  login->buttonslist->append(new LoginButton(5,5,315,50,"Login"));
+  
   // Admin menu screen 
   int num_admin_buttons = 7;
   int admin_button_height = (HEIGHT - ((num_admin_buttons + 1) * 5))/num_admin_buttons;
@@ -363,13 +386,22 @@ void setup() {
   main_menu->add_button(5,190,135,230, "Logout", blank_screen);
 
   
+  //Define the controlling pins for each servo
+  servo1.attach(9);
+  servo2.attach(10);
+  servo1.write(position1);
+
+  //Define the controlling pin for the pump.
+  pinMode(8,INPUT);
+  digitalWrite(8,LOW);
+ 
   
   screen_stack->push(main_menu);  // Set start screen.
 
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
+  // put your main code here, to run repeatedly
   myGLCD.clrScr();
   myGLCD.setBackColor(0,0,255);
   currScreen = screen_stack->getHead()->getData();
@@ -377,6 +409,12 @@ void loop() {
   myGLCD.setBackColor (0, 0, 0);
   while (true) 
   {
+    if (currScreen == dispensing) {
+      delay(10000);
+      pinMode(8,INPUT);
+      screen_stack->pop();
+      break;
+    }
     if (myTouch.dataAvailable()) {
       myTouch.read();
       x=myTouch.getX();
@@ -387,4 +425,5 @@ void loop() {
       }
     }
   }
+
 }
