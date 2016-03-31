@@ -1,6 +1,7 @@
 #include <UTFT.h>
 #include <ITDB02_Touch.h>
 #include <List.h>
+#include <Beverage.h>
 #include <Servo.h>
 
 String username="bob";
@@ -25,6 +26,22 @@ ITDB02_Touch myTouch(6, 5, 4, 3, 2);
 
 int x, y;
 
+class Screen;
+Screen* login;
+Screen* main_menu;
+Screen* dispense_one;
+Screen* dispense_two;
+Screen* dispensing;
+Screen* options_menu;
+Screen* admin_menu;
+Screen* beverage_options_menu;
+Screen* user_profile_menu;
+Screen* blank_screen;
+Screen* currScreen;
+
+List<Screen*>* screen_stack;
+List<Beverage*>* beverage_list;
+
 // Draw a red frame while a button is touched
 void waitForIt(int x1, int y1, int x2, int y2)
 {
@@ -35,10 +52,6 @@ void waitForIt(int x1, int y1, int x2, int y2)
   myGLCD.setColor(255, 255, 255);
   myGLCD.drawRoundRect (x1, y1, x2, y2);
 }
-
-class Screen;
-
-List<Screen*>* screen_stack;
 
 /*****************************************
  * Generic button class 
@@ -130,7 +143,7 @@ public:
   bool on_press() {
     myGLCD.clrScr();
     drawKeyBoard(false);
-    readKeyBoard(bool SHIFT,bool PASSWORD,int X,int Y);
+    //readKeyBoard(bool SHIFT,bool PASSWORD,int X,int Y);
     delay(10000);
     return false;
   }
@@ -169,10 +182,11 @@ public:
   bool on_press() {
     // Dispense the beverage based 
       while (myTouch.dataAvailable()) {
-        myTouch.read();
+        myTouch.read(); // THIS LINE MIGHT BE OPTIONAL
         // send signal to pour the beverage
-        
+        pinMode(8, OUTPUT);
       }
+      pinMode(8,INPUT);
       // send signal to stop pouring
      return false;
   }
@@ -250,8 +264,6 @@ class Screen {
     for (; curr; curr = curr->getNext()) {
       curr->getData()->display_button();
     }
-
-
   }
 
   void add_button(int x1,int y1,int x2,int y2, String text, Screen* next_screen) {
@@ -275,17 +287,50 @@ class Screen {
   
 };
 
-Screen* login;
-Screen* main_menu;
-Screen* dispense_one;
-Screen* dispense_two;
-Screen* dispensing;
-Screen* options_menu;
-Screen* admin_menu;
-Screen* beverage_options_menu;
-Screen* user_profile_menu;
-Screen* blank_screen;
-Screen* currScreen;
+class MainMenu : public Screen {
+  MainMenu(String Name) : Screen(Name) {};
+
+  void createButtons() {
+    Node<Beverage*>* curr = beverage_list->getHead();
+    this->buttonslist = new List<GenericButton*>(); // WRITE A DELETE LATER YOU SCRUBS
+    int height = 45; 
+    int width = 240;
+    int padding = 5;
+    int yloc = padding + height;
+    main_menu->add_button(5,5,245,50,"Phillips Beer", dispense_one);
+    main_menu->add_button(5,55,245,95, "Smirnoff", dispense_two);
+    main_menu->add_button(5,100,245,140, "Steamwhistle", blank_screen);
+    main_menu->add_button(5,145,245,185, "Jagermeister", blank_screen);
+  
+    for (; curr; curr = curr->getNext()) {
+      if (curr->getData()->getType() == BEER) {
+        main_menu->add_button(5,((yloc-45)+5),245,yloc,curr->getData()->getName(), dispense_one);
+      } else {
+        main_menu->add_button(5,((yloc-45)+5),245,yloc,curr->getData()->getName(), dispense_two);
+      }
+      yloc += height;
+    }
+    
+    main_menu->add_button(170,190,315,230, "Options", options_menu);
+    main_menu->add_button(5,190,135,230, "Logout", blank_screen);
+  }
+
+  void display_screen() {
+    createButtons(); 
+    Node<GenericButton*>* curr = buttonslist->getHead();
+    Node<ScreenText*>* point = screentext->getHead();
+    
+    // Draw the text for the screen
+    for (; point; point = point->getNext()) {
+      point->getData()->display_text();
+    }
+
+    // Draw the buttons for the screen
+    for (; curr; curr = curr->getNext()) {
+      curr->getData()->display_button();
+    }
+  }
+};
 
 void setup() {
   // Inital setup code of the 
@@ -300,6 +345,7 @@ void setup() {
   myGLCD.setBackColor(0,0,255);
   
   screen_stack = new List<Screen*>();
+  beverage_list->append(new Beverage("Phillips Beer", BEER, 37.50, 5000, SLOT_1));
 
   blank_screen = new Screen("Blank screen");
   blank_screen->buttonslist->append(new BackButton(5,5,245,50,"Back..."));
@@ -312,7 +358,7 @@ void setup() {
   //************************************************************** 
 
   login = new Screen("login");
-  login->buttonslist->append(new LoginButton(5,5,315,50,"Login"));
+  login->buttonslist->append(new LoginButton(5,75,315,120,"Login"));
   
   // Admin menu screen 
   int num_admin_buttons = 7;
@@ -378,10 +424,12 @@ void setup() {
   
   // Setup the main menu screen and objects
   main_menu = new Screen("Main menu");
+  /*
   main_menu->add_button(5,5,245,50,"Phillips Beer", dispense_one);
   main_menu->add_button(5,55,245,95, "Smirnoff", dispense_two);
   main_menu->add_button(5,100,245,140, "Steamwhistle", blank_screen);
   main_menu->add_button(5,145,245,185, "Jagermeister", blank_screen);
+  */
   main_menu->add_button(170,190,315,230, "Options", options_menu);
   main_menu->add_button(5,190,135,230, "Logout", blank_screen);
 
