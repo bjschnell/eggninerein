@@ -1,27 +1,29 @@
 #pragma once
 
-	template <typename S>
-	class Node {
+#include <iostream>
 
-		S data;
-		Node<S>* next;
-	
-	public:
+template <typename S>
+class Node {
 
-		Node() { next = NULL; }
+	S data;
+	Node<S>* next;
+	
+public:
 
-		Node(S d) {
-			data = d; 
-			next = NULL;
-		}
+	Node() { next = NULL; }
+
+	Node(S d) {
+		data = d; 
+		next = NULL;
+	}
 	
-		void setData (S d) { data = d; };
-		S getData () { return data; };
+	void setData (S d) { data = d; };
+	S getData () { return data; };
 	
-		void setNext (Node<S>* n) { next = n; }
-		Node<S>* getNext () { return next; }
-	
-	};
+	void setNext (Node<S>* n) { next = n; }
+	Node<S>* getNext () { return next; }
+
+};
 
 template <typename T>
 class List {
@@ -121,6 +123,7 @@ void List<T>::remove (T item) {
 			
 			delete curr;
 			size--;
+			return;
 			
 		}
 	}
