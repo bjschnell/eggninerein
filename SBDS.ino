@@ -4,8 +4,8 @@
 #include <Beverage.h>
 #include <Servo.h>
 
-String username="oj";
-String password="pb";
+String username="BILL";
+String password="666";
 
 Servo servo1;
 Servo servo2;
@@ -19,6 +19,9 @@ Servo servo2;
 #define HEIGHT 240
 #define WIDTH 320
 
+enum DisplayMode { VISIBLE, HIDDEN };
+DisplayMode keyboard_display_mode;
+
 extern uint8_t BigFont[];
 extern uint8_t SmallFont[];
 
@@ -27,6 +30,7 @@ ITDB02_Touch myTouch(6, 5, 4, 3, 2);
 
 class Screen;
 class MainMenu;
+class Form;
 
 int x, y;
 Screen* login;
@@ -42,6 +46,14 @@ Screen* blank_screen;
 Screen* currScreen;
 Screen* add_beverage;
 Screen* remove_beverage;
+Screen* keyboard_screen;
+
+String keyboard_string = "";
+
+String input_username = "";
+String input_password = "";
+
+Form* current_form; // The current active form the user is using.
 
 List<Screen*>* screen_stack;
 List<Beverage*>* beverage_list;
@@ -56,6 +68,30 @@ void waitForIt(int x1, int y1, int x2, int y2)
   myGLCD.setColor(255, 255, 255);
   myGLCD.drawRoundRect (x1, y1, x2, y2);
 }
+
+/**************************************
+ * Screen Text Class
+ * 
+ * 
+ **************************************/
+class ScreenText {
+  public:
+    int x, y;
+    String text;
+
+  ScreenText(String input, int x, int y) {
+    this->text = input;
+    this->x = x;
+    this->y = y;
+  }
+
+  void display_text() {
+    myGLCD.setBackColor (0, 0, 0);
+    myGLCD.print(text, x, y);
+    myGLCD.setBackColor (0, 0, 255);
+  }
+  
+};
 
 /*****************************************
  * Generic button class 
@@ -80,13 +116,7 @@ class GenericButton {
       
     }
     
-    void display_button() {
-      myGLCD.setColor(0, 0, 255);
-      myGLCD.fillRoundRect (x1,y1, x2, y2);
-      myGLCD.setColor(255, 255, 255);
-      myGLCD.drawRoundRect (x1, y1, x2, y2);
-      myGLCD.print(text, fontx, fonty);
-    }
+    virtual void display_button() = 0;
 
     /* IF YOU ARE CHANGING SCREENS RETURN
      *  TRUE, OTHERWISE FALSE
@@ -116,6 +146,15 @@ public:
   Button (int x1, int y1, int x2, int y2, String text, Screen* next_screen) : GenericButton(x1,y1,x2,y2,text) {
     this->next_screen = next_screen;
   }
+
+    void display_button() {
+      myGLCD.setBackColor (0, 0, 255);
+      myGLCD.setColor(0, 0, 255);
+      myGLCD.fillRoundRect (x1,y1, x2, y2);
+      myGLCD.setColor(255, 255, 255);
+      myGLCD.drawRoundRect (x1, y1, x2, y2);
+      myGLCD.print(text, fontx, fonty);
+    }
   
   bool on_press() {
     screen_stack->push(next_screen);
@@ -132,6 +171,15 @@ class BackButton: public GenericButton {
 public:
   BackButton(int x1, int y1, int x2, int y2, String text) : GenericButton(x1,y1,x2,y2,text) {}
 
+    void display_button() {
+      myGLCD.setBackColor (0, 0, 255);
+      myGLCD.setColor(0, 0, 255);
+      myGLCD.fillRoundRect (x1,y1, x2, y2);
+      myGLCD.setColor(255, 255, 255);
+      myGLCD.drawRoundRect (x1, y1, x2, y2);
+      myGLCD.print(text, fontx, fonty);
+    }
+
   bool on_press() {
     screen_stack->pop();
     return true;
@@ -145,25 +193,29 @@ public:
 class LoginButton: public GenericButton {
 public:
   Screen* next_screen;
+  
   LoginButton(int x1, int y1, int x2, int y2, String text, Screen* next_screen) : GenericButton(x1,y1,x2,y2,text) {
     this->next_screen = next_screen;
   }
+
+    void display_button() {
+      myGLCD.setBackColor (0, 0, 255);
+      myGLCD.setColor(0, 0, 255);
+      myGLCD.fillRoundRect (x1,y1, x2, y2);
+      myGLCD.setColor(255, 255, 255);
+      myGLCD.drawRoundRect (x1, y1, x2, y2);
+      myGLCD.print(text, fontx, fonty);
+    }
   
   bool on_press() {
-    myGLCD.clrScr();
-    myGLCD.print("Username:", 5,5);
-    drawKeyBoard(false);
-    String input_user = String(readKeyBoard(false, false,150,5));
-    myGLCD.clrScr();
-    myGLCD.print(input_user, 5,5);
-    drawKeyBoard(false);
-    String input_pass = String(readKeyBoard(false, true,150,5));
-    
-    if (input_user == username && input_pass == password) {
+    if (input_username == username && password == input_password) {
       screen_stack->push(next_screen);
+      keyboard_string = "";
+      input_username = "";
+      input_password = "";
+      return true;
     }
-    myGLCD.setFont(BigFont);
-    return true;
+    return false;
   }
 };
 
@@ -179,6 +231,15 @@ public:
   DispenseButton(int x1, int y1, int x2, int y2, String text, Screen* next_screen) : GenericButton(x1,y1,x2,y2,text) {
     this->next_screen = next_screen; 
   }
+
+    void display_button() {
+      myGLCD.setBackColor (0, 0, 255);
+      myGLCD.setColor(0, 0, 255);
+      myGLCD.fillRoundRect (x1,y1, x2, y2);
+      myGLCD.setColor(255, 255, 255);
+      myGLCD.drawRoundRect (x1, y1, x2, y2);
+      myGLCD.print(text, fontx, fonty);
+    }
 
   bool on_press() {
     // Dispense the beverage based 
@@ -196,6 +257,15 @@ public:
 class FreePourButton: public GenericButton {
 public:
   FreePourButton(int x1, int y1, int x2, int y2, String text) : GenericButton(x1,y1,x2,y2,text) {}
+
+    void display_button() {
+      myGLCD.setBackColor (0, 0, 255);
+      myGLCD.setColor(0, 0, 255);
+      myGLCD.fillRoundRect (x1,y1, x2, y2);
+      myGLCD.setColor(255, 255, 255);
+      myGLCD.drawRoundRect (x1, y1, x2, y2);
+      myGLCD.print(text, fontx, fonty);
+    }
 
   bool on_press() {
     // Dispense the beverage based 
@@ -220,6 +290,15 @@ class DisableButton: public GenericButton {
 public:
   DisableButton(int x1, int y1, int x2, int y2, String text) : GenericButton(x1,y1,x2,y2,text) {}
 
+    void display_button() {
+      myGLCD.setBackColor (0, 0, 255);
+      myGLCD.setColor(0, 0, 255);
+      myGLCD.fillRoundRect (x1,y1, x2, y2);
+      myGLCD.setColor(255, 255, 255);
+      myGLCD.drawRoundRect (x1, y1, x2, y2);
+      myGLCD.print(text, fontx, fonty);
+    }
+
   bool on_press() {
     // Stop the pouring process
     screen_stack->pop();
@@ -228,27 +307,161 @@ public:
 };
 
 /**************************************
- * Screen Text Class
- * 
- * 
- **************************************/
-class ScreenText {
-  public:
-    int x, y;
-    String text;
-
-  ScreenText(String input, int x, int y) {
-    this->text = input;
-    this->x = x;
-    this->y = y;
+ * Form class
+ * Allows for user input via keyboard.
+ *
+**************************************/
+class Form : public GenericButton {
+public:
+  int string_length;
+  String* what_it_sets;
+  DisplayMode display_mode;
+  
+  Form (int x1, int y1, int x2, int y2, String text, int string_length, String* what_it_sets, DisplayMode display_mode) : GenericButton(x1,y1,x2,y2,text) {
+    this->string_length = string_length; 
+    this->what_it_sets = what_it_sets;
+    this->display_mode = display_mode;
   }
 
-  void display_text() {
-    myGLCD.setBackColor (0, 0, 0);
-    myGLCD.print(text, x, y);
-    myGLCD.setBackColor (0, 0, 255);
+  void display_button() {
+      this->text = (*what_it_sets); // Make sure the form does not display what was previously entered.
+      myGLCD.setBackColor (0, 0, 0);
+      myGLCD.setColor(0, 0, 0); // Button background is set to black.
+      myGLCD.fillRoundRect (x1,y1, x2, y2);
+      myGLCD.setColor(255, 255, 255);
+      myGLCD.drawRoundRect (x1, y1, x2, y2);
+      myGLCD.print(text, fontx, fonty);
+    }
+
+  bool on_press() {
+    
+    if (display_mode == HIDDEN) {
+      keyboard_display_mode = HIDDEN;
+    } else {
+      keyboard_display_mode = VISIBLE;
+    }
+    
+    screen_stack->push(keyboard_screen); // Always brings up keyboard screen.
+    current_form = this;
+    return true;
+  }
+
+  void set_text(String text) {
+    if (text.length() > string_length) {
+      this->text = text.substring(0,string_length);
+    } else {
+      this->text = text;
+    }
+    *what_it_sets = this->text;
+
+    if (display_mode == HIDDEN) {
+      this->text = "****";
+    }
+    
+    fontx = x1 + (((x2 - x1) / 2 ) - ((this->text.length() * (FONT_SIZE / 2)))); 
+    fonty = y1 + (((y2 - y1) / 2 ) - (FONT_SIZE/2));
+  }
+};
+
+/**************************************
+ * AlphanumButton Class
+ * Represents the numeric (0..9) and alphabetical
+ * ('A'..'Z') buttons on the keyboard.
+**************************************/
+class AlphanumKey : public GenericButton {
+public:
+  char character;
+
+  AlphanumKey(int x1, int y1, int x2, int y2, String text, char character) : GenericButton(x1,y1,x2,y2,text) {
+    this->character = character;
+  }
+  // Override the display_button method to use green as the keyboard colour.
+  void display_button() {
+      myGLCD.setBackColor (0, 200, 0);
+      myGLCD.setColor(0, 200, 0);
+      myGLCD.fillRoundRect (x1,y1, x2, y2);
+      myGLCD.setColor(255, 255, 255);
+      myGLCD.drawRoundRect (x1, y1, x2, y2);
+      myGLCD.print(text, fontx, fonty);
+    }
+
+  bool on_press() {
+    keyboard_string += character;
+    show_keyboard_text();
+    return false;
   }
   
+};
+
+// Prints inputted text onto keyboard screen.
+void show_keyboard_text() {
+  if (keyboard_display_mode == HIDDEN) {
+    
+    myGLCD.setColor(255,255,255);
+    String hidden_string = "";
+    
+    for (int i = 0; i < keyboard_string.length()-1; i++) {
+      hidden_string += '*';
+    }
+    hidden_string += keyboard_string.charAt(keyboard_string.length()-1);
+    
+    myGLCD.print(hidden_string, 5, 5);
+  } else {
+    myGLCD.setColor(255,255,255);
+    myGLCD.print(keyboard_string, 5, 5);
+  }
+  
+}
+
+/**************************************
+ * BackspaceKey Class
+ * Functions as a backspace key for the keyboard.
+**************************************/
+class BackspaceKey : public GenericButton {
+public:
+  BackspaceKey(int x1, int y1, int x2, int y2, String text) : GenericButton(x1,y1,x2,y2,text) {}
+
+  void display_button() {
+      myGLCD.setBackColor (0, 200, 0);
+      myGLCD.setColor(0, 200, 0);
+      myGLCD.fillRoundRect (x1,y1, x2, y2);
+      myGLCD.setColor(255, 255, 255);
+      myGLCD.drawRoundRect (x1, y1, x2, y2);
+      myGLCD.print(text, fontx, fonty);
+    }
+
+  bool on_press() {
+    keyboard_string.remove(keyboard_string.length() - 1);
+    myGLCD.print("                   ", 5, 5);
+    show_keyboard_text();
+    return false;
+  }
+  
+};
+
+/**************************************
+ * EnterKey Class
+ * Functions as a backspace key for the keyboard.
+**************************************/
+class EnterKey : public GenericButton {
+public:
+  EnterKey(int x1, int y1, int x2, int y2, String text) : GenericButton(x1,y1,x2,y2,text) {}
+
+  void display_button() {
+      myGLCD.setBackColor (0, 255, 0);
+      myGLCD.setColor(0, 200, 0);
+      myGLCD.fillRoundRect (x1,y1, x2, y2);
+      myGLCD.setColor(255, 255, 255);
+      myGLCD.drawRoundRect (x1, y1, x2, y2);
+      myGLCD.print(text, fontx, fonty);
+    }
+
+  bool on_press() {
+    current_form->set_text(keyboard_string);
+    keyboard_string = "";
+    screen_stack->pop();
+    return true;
+  }
 };
 
 /*****************************************
@@ -306,6 +519,9 @@ class Screen {
   
 };
 
+/*****************************************
+ * Main Menu class
+ ******************************************/
 class MainMenu : public Screen {
   public:
    MainMenu(String Name) : Screen(Name) {};
@@ -360,6 +576,51 @@ void setup() {
   // IMPORTANT NOTE: Target screens must be initalized before they
   //                 are used as the destination screen
   //************************************************************** 
+
+  //**************************************************************
+  // INITIALIZE KEYBOARD
+  
+  keyboard_screen = new Screen("Keyboard");
+  {
+  char alphanum_keys[36] = {'1', '2', '3', '4', '5', '6', '7', '8', '9', '0',
+  'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 'A', 'S', 'D', 'F', 'G',
+  'H', 'J', 'K', 'L', 'Z', 'X', 'C', 'V', 'B', 'N', 'M'};
+  
+  int start_x = 5;
+  int start_y = 92;
+  int key_gap = 5;
+  int key_width = (WIDTH - 5*11) / 10;
+  int max_keyboard_x = WIDTH - key_width - 5;
+  int max_keyboard_y = HEIGHT - key_width - 5;
+  int key_count = 0;
+  int alphanum_index = 0;
+  
+  int keyboard_x = start_x;
+  int keyboard_y = start_y;
+
+  for (; keyboard_y <= max_keyboard_y; keyboard_y += key_width + key_gap) {
+    keyboard_x = start_x;
+    for (; keyboard_x <= max_keyboard_x; keyboard_x += key_width + key_gap, key_count++) {
+      if (key_count == 29) {  // Backspace key
+        keyboard_screen->buttonslist->append(new BackspaceKey(keyboard_x, keyboard_y, keyboard_x + key_width, keyboard_y + key_width, "<"));
+        continue;
+      }
+      if (key_count == 37) {  // Spacebar
+        keyboard_screen->buttonslist->append(new AlphanumKey(keyboard_x, keyboard_y, keyboard_x + key_gap + (key_width*2), keyboard_y + key_width, "_", ' '));
+        keyboard_x += key_width + key_gap;
+        continue;
+      }
+      if (key_count == 38) {  // Enter button
+        keyboard_screen->buttonslist->append(new EnterKey(keyboard_x, keyboard_y, keyboard_x + key_width, keyboard_y + key_width, "#"));
+        continue;
+      }
+      keyboard_screen->buttonslist->append(new AlphanumKey(keyboard_x, keyboard_y, keyboard_x + key_width, keyboard_y + key_width, 
+        String(alphanum_keys[alphanum_index]), alphanum_keys[alphanum_index]));
+      alphanum_index++;
+    }
+  }
+  }
+  //**************************************************************
   
   // Admin menu screen 
   int num_admin_buttons = 7;
@@ -397,7 +658,7 @@ void setup() {
 
   // Dispensing beverage screen
   dispensing = new Screen("Dispensing beverage screen");
-  String beverage1_text = "Phillips Beer";
+  String beverage1_text = "Generic Beer";
   String dispenseMessage = "Now dispensing";
   String dispenseMessage2 = "your beverage!";
   dispensing->add_text( (((315 - 5) / 2 ) - ((beverage1_text.length() * (FONT_SIZE / 2)))) , 10, beverage1_text);
@@ -415,16 +676,14 @@ void setup() {
 
   // Dispensing beverage type 1 screen
   dispense_two = new Screen("Dispense Alchohol beverage");
-  String beverage2_text = "Smirnoff";
+  String beverage2_text = "Hard Alcohol";
   dispense_two->add_text( (((315 - 5) / 2 ) - ((beverage2_text.length() * (FONT_SIZE / 2)))) , 10, beverage2_text);
   dispense_two->buttonslist->append(new DispenseButton(5,55,315,95, "Single Shot", dispensing));
   dispense_two->buttonslist->append(new DispenseButton(5,100,315,140, "Double Shot", dispensing));
   dispense_two->buttonslist->append(new FreePourButton(5,145,315,185, "Free pour"));
-  dispense_two->buttonslist->append(new DisableButton(170,190,315,230, "Disable"));
-  dispense_two->buttonslist->append(new BackButton(5,190,150,230,"Back..."));
+  dispense_two->buttonslist->append(new BackButton(70,190,(320-70),230,"Back..."));
 
   add_beverage = new Screen("Add beverage screen");
-  
   
   remove_beverage = new Screen("Remove beverage screen");
   // Setup the main menu screen and objects
@@ -432,7 +691,12 @@ void setup() {
   main_menu->createButtons();
 
   login = new Screen("login");
-  login->buttonslist->append(new LoginButton(5,75,315,120,"Login", main_menu));
+  login->add_text( 5, 5, "Username:");
+  login->add_text( 5, 81, "Password:");
+  login->buttonslist->append(new Form(5, 26, 315, 71, "", 4, &input_username, VISIBLE));
+  login->buttonslist->append(new Form(5, 102, 315, 147, "", 4, &input_password, HIDDEN));
+  login->buttonslist->append(new LoginButton(5,192,315,237,"Login", main_menu));
+  
   //Define the controlling pins for each servo
   servo1.attach(9);
   servo2.attach(10);
@@ -441,7 +705,6 @@ void setup() {
   //Define the controlling pin for the pump.
   pinMode(8,INPUT);
   digitalWrite(8,LOW);
-  
   
   screen_stack->push(login);  // Set start screen.
 }
