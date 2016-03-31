@@ -4,8 +4,8 @@
 #include <Beverage.h>
 #include <Servo.h>
 
-String username="bob";
-String password="pass";
+String username="oj";
+String password="pb";
 
 Servo servo1;
 Servo servo2;
@@ -20,15 +20,17 @@ Servo servo2;
 #define WIDTH 320
 
 extern uint8_t BigFont[];
+extern uint8_t SmallFont[];
 
 UTFT myGLCD(SSD1289, 38, 39, 40, 41); 
 ITDB02_Touch myTouch(6, 5, 4, 3, 2);
 
-int x, y;
-
 class Screen;
+class MainMenu;
+
+int x, y;
 Screen* login;
-Screen* main_menu;
+MainMenu* main_menu;
 Screen* dispense_one;
 Screen* dispense_two;
 Screen* dispensing;
@@ -38,6 +40,8 @@ Screen* beverage_options_menu;
 Screen* user_profile_menu;
 Screen* blank_screen;
 Screen* currScreen;
+Screen* add_beverage;
+Screen* remove_beverage;
 
 List<Screen*>* screen_stack;
 List<Beverage*>* beverage_list;
@@ -84,6 +88,9 @@ class GenericButton {
       myGLCD.print(text, fontx, fonty);
     }
 
+    /* IF YOU ARE CHANGING SCREENS RETURN
+     *  TRUE, OTHERWISE FALSE
+     */
     bool is_pressed(int x, int y) {
       if (( y >= y1 && y <= y2)) {
           if ((x>= x1 && x <= x2)) {
@@ -130,7 +137,6 @@ public:
     return true;
   }
 };
-
 /*****************************************
  * Back button class 
  * Used to go to the previous screen.
@@ -138,14 +144,26 @@ public:
  *****************************************/
 class LoginButton: public GenericButton {
 public:
-  LoginButton(int x1, int y1, int x2, int y2, String text) : GenericButton(x1,y1,x2,y2,text) {}
-
+  Screen* next_screen;
+  LoginButton(int x1, int y1, int x2, int y2, String text, Screen* next_screen) : GenericButton(x1,y1,x2,y2,text) {
+    this->next_screen = next_screen;
+  }
+  
   bool on_press() {
     myGLCD.clrScr();
+    myGLCD.print("Username:", 5,5);
     drawKeyBoard(false);
-    //readKeyBoard(bool SHIFT,bool PASSWORD,int X,int Y);
-    delay(10000);
-    return false;
+    String input_user = String(readKeyBoard(false, false,150,5));
+    myGLCD.clrScr();
+    myGLCD.print(input_user, 5,5);
+    drawKeyBoard(false);
+    String input_pass = String(readKeyBoard(false, true,150,5));
+    
+    if (input_user == username && input_pass == password) {
+      screen_stack->push(next_screen);
+    }
+    myGLCD.setFont(BigFont);
+    return true;
   }
 };
 
@@ -181,12 +199,13 @@ public:
 
   bool on_press() {
     // Dispense the beverage based 
+    pinMode(8, OUTPUT);
       while (myTouch.dataAvailable()) {
         myTouch.read(); // THIS LINE MIGHT BE OPTIONAL
         // send signal to pour the beverage
-        pinMode(8, OUTPUT);
+        
       }
-      pinMode(8,INPUT);
+     pinMode(8,INPUT);
       // send signal to stop pouring
      return false;
   }
@@ -288,19 +307,16 @@ class Screen {
 };
 
 class MainMenu : public Screen {
-  MainMenu(String Name) : Screen(Name) {};
-
+  public:
+   MainMenu(String Name) : Screen(Name) {};
+   
   void createButtons() {
     Node<Beverage*>* curr = beverage_list->getHead();
-    this->buttonslist = new List<GenericButton*>(); // WRITE A DELETE LATER YOU SCRUBS
+    //this->buttonslist = new List<GenericButton*>(); // WRITE A DELETE LATER YOU SCRUBS
     int height = 45; 
     int width = 240;
     int padding = 5;
     int yloc = padding + height;
-    main_menu->add_button(5,5,245,50,"Phillips Beer", dispense_one);
-    main_menu->add_button(5,55,245,95, "Smirnoff", dispense_two);
-    main_menu->add_button(5,100,245,140, "Steamwhistle", blank_screen);
-    main_menu->add_button(5,145,245,185, "Jagermeister", blank_screen);
   
     for (; curr; curr = curr->getNext()) {
       if (curr->getData()->getType() == BEER) {
@@ -311,25 +327,10 @@ class MainMenu : public Screen {
       yloc += height;
     }
     
-    main_menu->add_button(170,190,315,230, "Options", options_menu);
-    main_menu->add_button(5,190,135,230, "Logout", blank_screen);
+    this->add_button(170,190,315,230, "Options", options_menu);
+    this->buttonslist->append(new BackButton(5,190,135,230,"Logout"));
   }
-
-  void display_screen() {
-    createButtons(); 
-    Node<GenericButton*>* curr = buttonslist->getHead();
-    Node<ScreenText*>* point = screentext->getHead();
-    
-    // Draw the text for the screen
-    for (; point; point = point->getNext()) {
-      point->getData()->display_text();
-    }
-
-    // Draw the buttons for the screen
-    for (; curr; curr = curr->getNext()) {
-      curr->getData()->display_button();
-    }
-  }
+  
 };
 
 void setup() {
@@ -345,7 +346,10 @@ void setup() {
   myGLCD.setBackColor(0,0,255);
   
   screen_stack = new List<Screen*>();
+  beverage_list = new List<Beverage*>();
+  
   beverage_list->append(new Beverage("Phillips Beer", BEER, 37.50, 5000, SLOT_1));
+  beverage_list->append(new Beverage("BANANANAS", LIQUOR, 37.50, 5000, SLOT_2));
 
   blank_screen = new Screen("Blank screen");
   blank_screen->buttonslist->append(new BackButton(5,5,245,50,"Back..."));
@@ -356,9 +360,6 @@ void setup() {
   // IMPORTANT NOTE: Target screens must be initalized before they
   //                 are used as the destination screen
   //************************************************************** 
-
-  login = new Screen("login");
-  login->buttonslist->append(new LoginButton(5,75,315,120,"Login"));
   
   // Admin menu screen 
   int num_admin_buttons = 7;
@@ -421,19 +422,17 @@ void setup() {
   dispense_two->buttonslist->append(new FreePourButton(5,145,315,185, "Free pour"));
   dispense_two->buttonslist->append(new DisableButton(170,190,315,230, "Disable"));
   dispense_two->buttonslist->append(new BackButton(5,190,150,230,"Back..."));
-  
-  // Setup the main menu screen and objects
-  main_menu = new Screen("Main menu");
-  /*
-  main_menu->add_button(5,5,245,50,"Phillips Beer", dispense_one);
-  main_menu->add_button(5,55,245,95, "Smirnoff", dispense_two);
-  main_menu->add_button(5,100,245,140, "Steamwhistle", blank_screen);
-  main_menu->add_button(5,145,245,185, "Jagermeister", blank_screen);
-  */
-  main_menu->add_button(170,190,315,230, "Options", options_menu);
-  main_menu->add_button(5,190,135,230, "Logout", blank_screen);
 
+  add_beverage = new Screen("Add beverage screen");
   
+  
+  remove_beverage = new Screen("Remove beverage screen");
+  // Setup the main menu screen and objects
+  main_menu = new MainMenu("Main menu");
+  main_menu->createButtons();
+
+  login = new Screen("login");
+  login->buttonslist->append(new LoginButton(5,75,315,120,"Login", main_menu));
   //Define the controlling pins for each servo
   servo1.attach(9);
   servo2.attach(10);
@@ -442,10 +441,9 @@ void setup() {
   //Define the controlling pin for the pump.
   pinMode(8,INPUT);
   digitalWrite(8,LOW);
- 
   
-  screen_stack->push(main_menu);  // Set start screen.
-
+  
+  screen_stack->push(login);  // Set start screen.
 }
 
 void loop() {
@@ -454,11 +452,12 @@ void loop() {
   myGLCD.setBackColor(0,0,255);
   currScreen = screen_stack->getHead()->getData();
   currScreen->display_screen();
+
   myGLCD.setBackColor (0, 0, 0);
   while (true) 
   {
     if (currScreen == dispensing) {
-      delay(10000);
+      delay(3000);
       pinMode(8,INPUT);
       screen_stack->pop();
       break;

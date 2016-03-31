@@ -13,9 +13,6 @@
  where you want your writing to start.
  
  */
-  
- char stCurrent[20];
- int stCurrentLen = 0;
  char font[95] = {'1','2','3','4','5','6','7','8','9','0','q','w','e','r','t','y','u','i','o','p','a','s','d','f','g','h','j','k','l','z','x','c','v','b','n','m'};
   char upper_font[95] = {'1','2','3','4','5','6','7','8','9','0','Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'Z', 'X', 'C', 'V', 'B', 'N', 'M'};
   //'!','-','+','$','%','^','=','*','(',')','A','B','C','D','E','F','G','H','I','J'};
@@ -25,7 +22,7 @@
 void drawKeyBoard(bool shift)
 {
   
-  
+  myGLCD.setFont(SmallFont);
    /*Create Keyboard Matrix*/
  
   int i = 0;
@@ -160,40 +157,42 @@ void drawKeyBoard(bool shift)
 
 
 
-void updateStr(int val, int x1, int y1, bool pass)
+void updateStr(int val, int x1, int y1, bool pass, char stCurrent[],int* stCurrentLen )
 {
   if(pass == true)
   {
       char passString[20]="";
       if(val == 8)
       {
-          stCurrent[stCurrentLen-1]=' ';
-          stCurrent[stCurrentLen]='\0';
+        if (*stCurrentLen > 0) {
+          stCurrent[(*stCurrentLen)-1]=' ';
+          stCurrent[*stCurrentLen]='\0';
           myGLCD.setColor(0, 0, 255);
           myGLCD.setFont(BigFont);
          // myGLCD.print(stCurrent, x1, y1);
-          stCurrentLen--;
-          stCurrent[stCurrentLen]='\0';
-          for(int i = 0; i<stCurrentLen;i++)
+          (*stCurrentLen)--;
+          stCurrent[*stCurrentLen]='\0';
+          for(int i = 0; i<*stCurrentLen;i++)
           {
             passString[i] = '*';
           }
           myGLCD.print(passString, x1, y1);
           
           myGLCD.setFont(SmallFont);
+        }
         
       }
       else
       {
-        if (stCurrentLen<20)
+        if (*stCurrentLen<20)
         {
-          stCurrent[stCurrentLen]=val;
-          stCurrent[stCurrentLen+1]='\0';
-          stCurrentLen++;
+          stCurrent[*stCurrentLen]=val;
+          stCurrent[(*stCurrentLen)+1]='\0';
+          (*stCurrentLen)++;
           myGLCD.setColor(0, 0, 255);
           myGLCD.setFont(BigFont);
          // myGLCD.print(stCurrent, 180, 10);
-         for(int i = 0; i<stCurrentLen;i++)
+         for(int i = 0; i<*stCurrentLen;i++)
           {
             passString[i] = '*';
           }
@@ -213,36 +212,30 @@ void updateStr(int val, int x1, int y1, bool pass)
           myGLCD.setColor(0, 255, 0);
         }
       }
-
-
-
-
-
-
-
-      
     
   }
   else
   {
       if(val == 8)
       {
-          stCurrent[stCurrentLen-1]=' ';
-          stCurrent[stCurrentLen]='\0';
+        if (*stCurrentLen > 0) {
+          stCurrent[(*stCurrentLen)-1]=' ';
+          stCurrent[*stCurrentLen]='\0';
           myGLCD.setColor(0, 0, 255);
           myGLCD.setFont(BigFont);
           myGLCD.print(stCurrent, x1, y1);
-          stCurrentLen--;
-          stCurrent[stCurrentLen]='\0';
+          (*stCurrentLen)--;
+          stCurrent[*stCurrentLen]='\0';
           myGLCD.setFont(SmallFont);
+        }
       }
       else
       {
-        if (stCurrentLen<20)
+        if (*stCurrentLen<20)
         {
-          stCurrent[stCurrentLen]=val;
-          stCurrent[stCurrentLen+1]='\0';
-          stCurrentLen++;
+          stCurrent[*stCurrentLen]=val;
+          stCurrent[(*stCurrentLen)+1]='\0';
+          (*stCurrentLen)++;
           myGLCD.setColor(0, 0, 255);
           myGLCD.setFont(BigFont);
           myGLCD.print(stCurrent, 180, 10);
@@ -265,9 +258,11 @@ void updateStr(int val, int x1, int y1, bool pass)
 }
 
 
-void readKeyBoard(bool shift, bool password, int textX, int textY)
+char* readKeyBoard(bool shift, bool password, int textX, int textY)
 {
   int i;
+  char stCurrent[20];
+  int stCurrentLen = 0;
   while(true)
   {
     if(myTouch.dataAvailable())
@@ -285,7 +280,7 @@ void readKeyBoard(bool shift, bool password, int textX, int textY)
             if((x>=10+(i*30)) && (x<=30+(i*30)))
             {
               waitForIt(10+(i*30), 90, 30+(i*30), 113);
-              updateStr(font[i],textX, textY, password);
+              updateStr(font[i],textX, textY, password, stCurrent, &stCurrentLen);
             }
           }
         }
@@ -296,7 +291,7 @@ void readKeyBoard(bool shift, bool password, int textX, int textY)
             if((x>=10+(i*30)) && (x<=30+(i*30)))
             {
               waitForIt(10+(i*30), 120, 30+(i*30), 143);
-              updateStr(font[i+10],textX, textY, password);
+              updateStr(font[i+10],textX, textY, password, stCurrent, &stCurrentLen);
             }
           }
         }
@@ -308,7 +303,7 @@ void readKeyBoard(bool shift, bool password, int textX, int textY)
             if((x>=25+(i*30)) && (x<=45+(i*30)))
             {
               waitForIt(25+(i*30), 150, 45+(i*30), 173);
-              updateStr(font[i+20],textX, textY, password);
+              updateStr(font[i+20],textX, textY, password, stCurrent, &stCurrentLen);
             }
           }
         }
@@ -319,7 +314,7 @@ void readKeyBoard(bool shift, bool password, int textX, int textY)
             if((x>=55+(i*30)) && (x<=75+(i*30)))
             {
               waitForIt(55+(i*30), 180, 75+(i*30), 203);
-              updateStr(font[i+29],textX, textY, password);
+              updateStr(font[i+29],textX, textY, password, stCurrent, &stCurrentLen);
             }
           }
         }
@@ -348,7 +343,7 @@ void readKeyBoard(bool shift, bool password, int textX, int textY)
           {
             int t = 8;
             //waitForIt(265, 180, 300, 203);
-            updateStr(t,textX, textY, password);
+            updateStr(t,textX, textY, password, stCurrent, &stCurrentLen);
           }
        }
 
@@ -359,7 +354,7 @@ void readKeyBoard(bool shift, bool password, int textX, int textY)
           if((x>=85)&&(x<=225))
           {
             waitForIt(85, 210, 225, 233);
-            updateStr(' ',textX, textY, password);
+            updateStr(' ',textX, textY, password, stCurrent, &stCurrentLen);
           }
        }
 
@@ -383,7 +378,7 @@ void readKeyBoard(bool shift, bool password, int textX, int textY)
             if((x>=10+(i*30)) && (x<=30+(i*30)))
             {
               waitForIt(10+(i*30), 90, 30+(i*30), 113);
-              updateStr(upper_font[i],textX, textY, password);
+              updateStr(upper_font[i],textX, textY, password, stCurrent, &stCurrentLen);
             }
           }
         }
@@ -394,7 +389,7 @@ void readKeyBoard(bool shift, bool password, int textX, int textY)
             if((x>=10+(i*30)) && (x<=30+(i*30)))
             {
               waitForIt(10+(i*30), 120, 30+(i*30), 143);
-              updateStr(upper_font[i+10],textX, textY, password);
+              updateStr(upper_font[i+10],textX, textY, password, stCurrent, &stCurrentLen);
             }
           }
         }
@@ -406,7 +401,7 @@ void readKeyBoard(bool shift, bool password, int textX, int textY)
             if((x>=25+(i*30)) && (x<=45+(i*30)))
             {
               waitForIt(25+(i*30), 150, 45+(i*30), 173);
-              updateStr(upper_font[i+20],textX, textY, password);
+              updateStr(upper_font[i+20],textX, textY, password, stCurrent, &stCurrentLen);
             }
           }
         }
@@ -417,7 +412,7 @@ void readKeyBoard(bool shift, bool password, int textX, int textY)
             if((x>=55+(i*30)) && (x<=75+(i*30)))
             {
               waitForIt(55+(i*30), 180, 75+(i*30), 203);
-              updateStr(upper_font[i+29],textX, textY, password);
+              updateStr(upper_font[i+29],textX, textY, password, stCurrent, &stCurrentLen);
             }
           }
         }
@@ -447,7 +442,7 @@ void readKeyBoard(bool shift, bool password, int textX, int textY)
           {
             int t = 8;
             //waitForIt(265, 180, 300, 203);
-            updateStr(t,textX, textY, password);
+            updateStr(t,textX, textY, password, stCurrent, &stCurrentLen);
           }
        }
 
@@ -457,20 +452,11 @@ void readKeyBoard(bool shift, bool password, int textX, int textY)
           if((x>=85)&&(x<=225))
           {
             waitForIt(85, 210, 225, 233);
-            updateStr(' ',textX, textY, password);
+            updateStr(' ',textX, textY, password, stCurrent, &stCurrentLen);
           }
        }     
       }  
       }
     }
-  
-}
-
-void clearStrings()
-{
-   for(int i=0; i<stCurrentLen;i++)
-  {
-    stCurrent[i] = ' ';
-  }
-  stCurrentLen=0;
+  return stCurrent;
 }
