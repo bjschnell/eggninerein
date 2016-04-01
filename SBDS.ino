@@ -50,15 +50,22 @@ Screen* add_beverage;
 RemoveBevScreen* remove_beverage;
 Screen* keyboard_screen;
 Screen* confirm;
+Screen* add_beverage_screen;
+Screen* choose_beverage_type_screen;
 
 String keyboard_string = "";
 
 String input_username = "";
 String input_password = "";
+String input_beverage_name = "";
+String beverage_type_button_text = "";
+
+BeverageType input_beverage_type = BEER;
 
 Beverage* remove_bev;
 
 bool bev_mod = false;
+bool choose_flag = false;
 
 Form* current_form; // The current active form the user is using.
 
@@ -187,6 +194,9 @@ class BackButton: public GenericButton {
     }
 
     bool on_press() {
+
+      // Clear all form text on the current screen before leaving.
+      clear_current_forms();
       screen_stack->pop();
       return true;
     }
@@ -213,9 +223,6 @@ class LoginButton: public GenericButton {
     bool on_press() {
       if (input_username == username && password == input_password) {
         screen_stack->push(next_screen);
-        keyboard_string = "";
-        input_username = "";
-        input_password = "";
         return true;
       }
       return false;
@@ -426,8 +433,8 @@ class AlphanumKey : public GenericButton {
     }
     // Override the display_button method to use green as the keyboard colour.
     void display_button() {
-      myGLCD.setBackColor (0, 200, 0);
-      myGLCD.setColor(0, 200, 0);
+      myGLCD.setBackColor (0, 150, 0);
+      myGLCD.setColor(0, 150, 0);
       GenericButton::display_button();
     }
 
@@ -470,8 +477,8 @@ class BackspaceKey : public GenericButton {
     BackspaceKey(int x1, int y1, int x2, int y2, String text) : GenericButton(x1, y1, x2, y2, text) {}
 
     void display_button() {
-      myGLCD.setBackColor (0, 200, 0);
-      myGLCD.setColor(0, 200, 0);
+      myGLCD.setBackColor (0, 150, 0);
+      myGLCD.setColor(0, 150, 0);
       GenericButton::display_button();
     }
 
@@ -493,8 +500,8 @@ class EnterKey : public GenericButton {
     EnterKey(int x1, int y1, int x2, int y2, String text) : GenericButton(x1, y1, x2, y2, text) {}
 
     void display_button() {
-      myGLCD.setBackColor (0, 255, 0);
-      myGLCD.setColor(0, 200, 0);
+      myGLCD.setBackColor (0, 150, 0);
+      myGLCD.setColor(0, 150, 0);
       GenericButton::display_button();
     }
 
@@ -504,6 +511,122 @@ class EnterKey : public GenericButton {
       screen_stack->pop();
       return true;
     }
+};
+
+/****************************************
+ * ChooseBeverageTypeButton class
+ * The user uses this to bring up the choose_beverage_type_screen
+ * so they may set the type of the beverage they are adding.
+ ****************************************/
+ class ChooseBeverageTypeButton : public GenericButton {
+ public:
+  Screen* next_screen;
+ 
+  ChooseBeverageTypeButton (int x1, int y1, int x2, int y2, String text, Screen* next_screen) : GenericButton(x1, y1, x2, y2, text) {
+    this->next_screen = next_screen;  
+  };
+
+  void display_button() {
+    myGLCD.setBackColor(0,0,255);
+    myGLCD.setColor(0,0,255);
+    
+    if (input_beverage_type == BEER) {
+      this->text = "Beer";
+    } else if (input_beverage_type == LIQUOR) {
+      this->text = "Liquor";
+    }
+
+    if (choose_flag) {
+      this->text = "Choose...";
+    }
+
+    fontx = x1 + (((x2 - x1) / 2 ) - ((this->text.length() * (FONT_SIZE / 2))));
+    fonty = y1 + (((y2 - y1) / 2 ) - (FONT_SIZE / 2));
+
+    GenericButton::display_button();
+  }
+
+  bool on_press() {
+    screen_stack->push(next_screen);
+    choose_flag = false; // Make the button display "Choose..." upon first displaying it.
+    return true;
+  }
+  
+ };
+
+/****************************************
+ * BeverageTypeSelectButton class
+ * The user selects one of these to confirm which
+ * type of alcohol they are adding to the system.
+ ***************************************/
+ class BeverageTypeButton : public GenericButton {
+ public:
+  BeverageType beverage_type;
+   
+  BeverageTypeButton(int x1, int y1, int x2, int y2, String text, BeverageType beverage_type) : GenericButton(x1, y1, x2, y2, text) {
+      this->beverage_type = beverage_type;
+  }
+
+  void display_button() {
+    myGLCD.setBackColor(0,0,255);
+    myGLCD.setColor(0,0,255);
+    GenericButton::display_button();
+  }
+
+  bool on_press() {
+    input_beverage_type = beverage_type;
+    screen_stack->pop();
+    return true;
+  }
+  
+ };
+
+ /****************************************
+  * CreateBeverageButton class
+  * Once pressed, this adds a created beverage
+  * to the system beverage list.
+  *****************************************/
+class CreateBeverageButton : public GenericButton {
+public:
+  CreateBeverageButton(int x1, int y1, int x2, int y2, String text) : GenericButton(x1, y1, x2, y2, text) {}
+
+  void display_button() {
+    myGLCD.setBackColor(0,150,0);
+    myGLCD.setColor(0,150,0);
+    GenericButton::display_button();
+  }
+
+  // Check if beverage name is unique within the beverage list.
+  bool beverage_name_is_unique() {
+    Node<Beverage*>* beverage_pointer = beverage_list->getHead();
+
+    for (; beverage_pointer; beverage_pointer = beverage_pointer->getNext()) {
+      if (input_beverage_name == beverage_pointer->getData()->getName()) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  bool on_press() {
+    if (beverage_list->getSize() > 4) {
+    // Beverage list is full.
+      return false;
+    } else if (!beverage_name_is_unique()) {
+    // Beverage name is not unique.
+      return false;
+    } else if (input_beverage_name.length() == 0) {
+      // Beverage name is too short.
+      return false;
+    } else {
+      beverage_list->append(new Beverage(input_beverage_name, input_beverage_type, 0.0, 0.0, Slot(beverage_list->getSize()))); // Slot assignment needs to be changed later.
+      bev_mod = true;
+      input_beverage_name = "";
+    }
+    screen_stack->pop();
+    return true;
+  }
+  
 };
 
 /*****************************************
@@ -653,9 +776,6 @@ void setup() {
   beverage_list = new List<Beverage*>();
 
   beverage_list->append(new Beverage("Phillips Beer", BEER, 37.50, 5000, SLOT_1));
-  beverage_list->append(new Beverage("BANANANAS", LIQUOR, 37.50, 5000, SLOT_2));
-  beverage_list->append(new Beverage("Poonanny", BEER, 37.50, 5000, SLOT_3));
-  beverage_list->append(new Beverage("Semen", LIQUOR, 37.50, 5000, SLOT_4));
 
   blank_screen = new Screen("Blank screen");
   blank_screen->buttonslist->append(new BackButton(5, 5, 245, 50, "Back..."));
@@ -694,7 +814,7 @@ void setup() {
       keyboard_x = start_x;
       for (; keyboard_x < max_keyboard_x; keyboard_x += key_width + key_gap, key_count++) {
         if (key_count == 29) {  // Backspace key
-          keyboard_screen->buttonslist->append(new BackspaceKey(keyboard_x, keyboard_y, keyboard_x + key_width, keyboard_y + key_width, "<"));
+          keyboard_screen->buttonslist->append(new BackspaceKey(keyboard_x, keyboard_y, keyboard_x + key_width, keyboard_y + key_width*2 + key_gap, "<"));
           continue;
           
         }
@@ -704,7 +824,8 @@ void setup() {
           continue;
         }
         if (key_count == 38) {  // Enter button
-          keyboard_screen->buttonslist->append(new EnterKey(keyboard_x, keyboard_y, keyboard_x + key_width, keyboard_y + key_width, "#"));
+          int enter_start = 5 + key_width*7 + key_gap*7;
+          keyboard_screen->buttonslist->append(new EnterKey(enter_start, start_y-key_width-key_gap, enter_start+key_width*3+key_gap*2, start_y-key_gap, "Done"));
           continue;
         }
         keyboard_screen->buttonslist->append(new AlphanumKey(keyboard_x, keyboard_y, keyboard_x + key_width, keyboard_y + key_width,
@@ -736,13 +857,25 @@ void setup() {
   // Remove beverage screen initialization 
   remove_beverage = new RemoveBevScreen("Remove beverage screen");
   remove_beverage->createButtons();
+
+  choose_beverage_type_screen = new Screen("Select beverage type");
+  choose_beverage_type_screen->buttonslist->append(new BeverageTypeButton(5, 20, 315, 65, "Beer", BEER));
+  choose_beverage_type_screen->buttonslist->append(new BeverageTypeButton(5, 70, 315, 115, "Liquor", LIQUOR));
+
+  add_beverage_screen = new Screen("Add beverage screen");
+  add_beverage_screen->add_text(5, 5, "Beverage name:");
+  add_beverage_screen->formlist->append(new Form(5, 26, 315, 71, "", 19, &input_beverage_name, VISIBLE));
+  add_beverage_screen->add_text(5, 81, "Beverage type:");
+  add_beverage_screen->buttonslist->append(new ChooseBeverageTypeButton(5, 102, 315, 147, "", choose_beverage_type_screen));
+  add_beverage_screen->buttonslist->append(new CreateBeverageButton(5, 190, 155, 230, "Confirm"));
+  add_beverage_screen->buttonslist->append(new BackButton(160, 190, 315, 230, "Back"));
   
   // Beverage options screen
   beverage_options_menu = new Screen("Beverage options menu");
-  beverage_options_menu->add_button(5, 5, 315, 50, "Add beverage", blank_screen);
+  beverage_options_menu->add_button(5, 5, 315, 50, "Add beverage", add_beverage_screen);
   beverage_options_menu->add_button(5, 55, 315, 95, "Remove beverage", remove_beverage);
   beverage_options_menu->add_button(5, 100, 315, 140, "Beverage info", blank_screen);
-  beverage_options_menu->buttonslist->append(new BackButton(170, 190, 315, 230, "Back..."));
+  beverage_options_menu->buttonslist->append(new BackButton(170, 190, 315, 230, "Back"));
 
   // User profile options menu
   user_profile_menu = new Screen("User profile menu");
@@ -750,7 +883,7 @@ void setup() {
   user_profile_menu->add_button(5, 55, 315, 95, "View quotas", blank_screen);
   user_profile_menu->add_button(5, 100, 315, 140, "Set quota", blank_screen);
   user_profile_menu->add_button(5, 145, 315, 185, "Change password", blank_screen);
-  user_profile_menu->buttonslist->append(new BackButton(170, 190, 315, 230, "Back..."));
+  user_profile_menu->buttonslist->append(new BackButton(170, 190, 315, 230, "Back"));
 
   // Main options menu screen
   options_menu = new Screen("Options menu");
@@ -758,7 +891,7 @@ void setup() {
   options_menu->add_button(5, 55, 315, 95, "Beverage Options", beverage_options_menu);
   options_menu->add_button(5, 100, 315, 140, "User Profile", user_profile_menu);
   options_menu->add_button(5, 145, 315, 185, "Enable Party Mode", blank_screen);
-  options_menu->buttonslist->append(new BackButton(170, 190, 315, 230, "Back..."));
+  options_menu->buttonslist->append(new BackButton(170, 190, 315, 230, "Back"));
 
   // Dispensing beverage screen
   dispensing = new Screen("Dispensing beverage screen");
@@ -776,7 +909,7 @@ void setup() {
   dispense_one->buttonslist->append(new DispenseButton(5, 55, 315, 95, "8 0z", dispensing));
   dispense_one->buttonslist->append(new DispenseButton(5, 100, 315, 140, "16 Oz", dispensing));
   dispense_one->buttonslist->append(new FreePourButton(5, 145, 315, 185, "Free pour"));
-  dispense_one->buttonslist->append(new BackButton(70, 190, (320 - 70), 230, "Back..."));
+  dispense_one->buttonslist->append(new BackButton(70, 190, (320 - 70), 230, "Back"));
 
   // Dispensing beverage type 1 screen
   dispense_two = new Screen("Dispense Alchohol beverage");
@@ -785,11 +918,8 @@ void setup() {
   dispense_two->buttonslist->append(new DispenseButton(5, 55, 315, 95, "Single Shot", dispensing));
   dispense_two->buttonslist->append(new DispenseButton(5, 100, 315, 140, "Double Shot", dispensing));
   dispense_two->buttonslist->append(new FreePourButton(5, 145, 315, 185, "Free pour"));
-  dispense_two->buttonslist->append(new BackButton(70, 190, (320 - 70), 230, "Back..."));
+  dispense_two->buttonslist->append(new BackButton(70, 190, (320 - 70), 230, "Back"));
 
-  add_beverage = new Screen("Add beverage screen");
-
-  
   // Setup the main menu screen and objects
   main_menu = new MainMenu("Main menu");
   main_menu->createButtons();
@@ -811,17 +941,33 @@ void setup() {
   digitalWrite(8, LOW);
 
   screen_stack->push(login);  // Set start screen.
+  screen_stack->push(main_menu);
 }
 
 /********************************
- * Clear all form data from the previous screen when exiting a screen
- * that is not the keyboard screen.
+ * Clear all form data from the current screen before exiting.
+ * Called exclusively by the BackButton class.
  ********************************/
-void clear_forms() {
+void clear_current_forms() {
+  Node<Form*>* form_pointer = currScreen->formlist->getHead();
+
+  for (; form_pointer; form_pointer = form_pointer->getNext()) {
+     form_pointer->getData()->set_text("");
+        // Workaround:
+        // For now, explicitly empty the text field, otherwise any hidden fields
+        // will fill their text field with the hidden field string.
+     form_pointer->getData()->text = "";
+  }
+}
+/********************************
+ * Clear all form data from the previous screen when exiting a screen
+ * that is not the keyboard  or choose_beverage_type screen.
+ ********************************/
+void clear_previous_forms() {
   Node<Screen*>* screen_node_pointer = screen_stack->getHead();
   Node<Form*>* form_pointer;
   
-  if (screen_node_pointer->getData() != keyboard_screen) {
+  if (screen_node_pointer->getData() != keyboard_screen && screen_node_pointer->getData() != choose_beverage_type_screen) {
     
     if (screen_node_pointer = screen_node_pointer->getNext()){
       
@@ -839,18 +985,30 @@ void clear_forms() {
     }
   }
 }
+// Print the keyboard position marker.
+void print_key_marker() {
+  if (currScreen == keyboard_screen) {
+    myGLCD.setBackColor(0,0,0);
+    myGLCD.print("_", keyboard_string.length() * FONT_SIZE + 5, 5);
+    myGLCD.setBackColor(0,0,0);
+  }
+}
 
 void loop() {
   // put your main code here, to run repeatedly
   myGLCD.clrScr();;
   myGLCD.setBackColor(0, 0, 255);
   currScreen = screen_stack->getHead()->getData();
-  clear_forms();
+  clear_previous_forms();
   
   if (bev_mod == true) {
     main_menu->createButtons();
     remove_beverage->createButtons();
     bev_mod = false;
+  }
+
+  if (currScreen == beverage_options_menu) {
+    choose_flag = true;
   }
   
   currScreen->display_screen();
@@ -867,6 +1025,7 @@ void loop() {
       screen_stack->pop();
       break;
     }
+    print_key_marker();
     if (myTouch.dataAvailable()) {
       myTouch.read();
       x = myTouch.getX();
